@@ -18,11 +18,11 @@ A Python tool for creating custom courses in Mario Golf 64 by swapping hole geom
 
 ## Installation
 
-1. Download the `interactive_course_creator.py` file
+1. Download the `mg64_swapper.py` file
 2. Place your Mario Golf 64 ROM in the same directory
 3. Run the tool:
    ```bash
-   python interactive_course_creator.py
+   python mg64_swapper.py
    ```
 
 ## Usage
