@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
 """
 Mario Golf 64 Interactive Course Creator
-Complete tool for creating custom courses with geometry and par swapping
+Complete tool for creating a custom or randomized course playlist
 """
 
 import struct
 import random
-from typing import List, Dict, Tuple, Optional
+import subprocess
+from typing import List, Dict, Optional
 
 class MarioGolf64InteractiveCourseCreator:
     def __init__(self, rom_path: str):
@@ -21,17 +21,17 @@ class MarioGolf64InteractiveCourseCreator:
         # Par table constants
         self.HOLE_PAR_TABLE = 641056  # 0x9C800
 
-        # Course mapping (0-5 for user selection)
+        # Only 6 main courses, not Intro Course or Mini-Golf courses
         self.course_names = {
             0: "Toad Highlands",
-            1: "Koopa Park", 
+            1: "Koopa Park",
             2: "Shy Guy Desert",
             3: "Yoshi's Island",
             4: "Boo Valley",
             5: "Mario's Star"
         }
 
-        # Complete hole mapping from your data
+        # Complete hole mapping
         self.hole_map = self._build_hole_map()
         self.course_to_indices = self._build_course_to_indices()
 
@@ -39,7 +39,10 @@ class MarioGolf64InteractiveCourseCreator:
         self.load_rom()
 
     def _build_hole_map(self) -> Dict[int, str]:
-        """Build the complete hole mapping"""
+        """
+        Complete indexing of all 108 holes in the game
+        (not including Mini Golf, Intro Course, or Driving Range)
+        """
         return {
             0: "Koopa Park Hole 1", 1: "Toad Highlands Hole 8", 2: "Toad Highlands Hole 5", 3: "Koopa Park Hole 4",
             4: "Koopa Park Hole 5", 5: "Koopa Park Hole 6", 6: "Koopa Park Hole 7", 7: "Koopa Park Hole 8",
@@ -71,7 +74,9 @@ class MarioGolf64InteractiveCourseCreator:
         }
 
     def _build_course_to_indices(self) -> Dict[int, Dict[int, int]]:
-        """Build mapping from course number and hole number to hole index"""
+        """
+        Build our dictionary of courses with holes mapping to index in the ROM
+        """
         course_mapping = {}
 
         # Initialize courses
@@ -92,14 +97,23 @@ class MarioGolf64InteractiveCourseCreator:
                 course_id = 4
             elif "Mario's Star" in description:
                 course_id = 5
-            else:
-                continue  # Skip practice course
 
             # Extract hole number
             hole_num = int(description.split(" Hole ")[1])
             course_mapping[course_id][hole_num] = hole_index
 
         return course_mapping
+
+
+    def fix_crc(self, rom_path: str):
+        """Use external RN64CRC tool to fix checksums"""
+        try:
+            subprocess.run(['rn64crc.exe', '-u', rom_path], check=True)
+            print("CRC updated successfully using RN64CRC")
+        except subprocess.CalledProcessError:
+            print("Failed to update CRC with external tool")
+        except FileNotFoundError:
+            print("RN64CRC tool not found - please fix CRC manually")
 
     def load_rom(self):
         """Load the ROM file into memory"""
@@ -114,12 +128,20 @@ class MarioGolf64InteractiveCourseCreator:
 
     def save_rom(self, output_path: str):
         """Save the modified ROM"""
+
         with open(output_path, 'wb') as f:
             f.write(self.rom_data)
+            self.fix_crc(output_path)
         print(f"ROM saved to: {output_path}")
 
     def get_par_address(self, course: int, hole: int) -> int:
-        """Calculate the ROM address for a hole's par value"""
+        """
+        Calculate the ROM address for a hole's par value
+        The game keeps track of the par for each hole in each course in a runtime table
+        even though it's also apart of the initial hole conditions in the courses table...
+
+        Credit to @DeathBasket's MG64 Hole Editor program, I never would have found this without it
+        """
         return self.HOLE_PAR_TABLE + 20 + 200 * course + 10 * hole
 
     def read_par_value(self, course: int, hole: int) -> int:
@@ -166,7 +188,7 @@ class MarioGolf64InteractiveCourseCreator:
             raise ValueError(f"Unknown hole index: {hole_index}")
 
     def swap_holes_complete(self, hole1_index: int, hole2_index: int):
-        """Swap two holes completely (geometry + par)"""
+        """Swap two holes completely"""
         # Swap geometry (7 components per hole)
         hole1_start = hole1_index * 7
         hole2_start = hole2_index * 7
@@ -175,34 +197,23 @@ class MarioGolf64InteractiveCourseCreator:
             entry1_idx = hole1_start + component
             entry2_idx = hole2_start + component
 
-            # Read both entries
-            offset = self.RESOURCE_TABLE_START + (entry1_idx * self.ENTRY_SIZE)
-            length1 = struct.unpack('>I', self.rom_data[offset:offset+4])[0]
-            offset1 = struct.unpack('>I', self.rom_data[offset+4:offset+8])[0]
-
             offset = self.RESOURCE_TABLE_START + (entry2_idx * self.ENTRY_SIZE)
             length2 = struct.unpack('>I', self.rom_data[offset:offset+4])[0]
             offset2 = struct.unpack('>I', self.rom_data[offset+4:offset+8])[0]
 
-            # Swap them
+            # Change pointer of Toad hole to new hole
             offset = self.RESOURCE_TABLE_START + (entry1_idx * self.ENTRY_SIZE)
             struct.pack_into('>I', self.rom_data, offset, length2)
             struct.pack_into('>I', self.rom_data, offset + 4, offset2)
-
-            offset = self.RESOURCE_TABLE_START + (entry2_idx * self.ENTRY_SIZE)
-            struct.pack_into('>I', self.rom_data, offset, length1)
-            struct.pack_into('>I', self.rom_data, offset + 4, offset1)
 
         # Swap par values
         try:
             course1, hole_num1 = self.hole_index_to_course_hole(hole1_index)
             course2, hole_num2 = self.hole_index_to_course_hole(hole2_index)
 
-            par1 = self.read_par_value(course1, hole_num1)
             par2 = self.read_par_value(course2, hole_num2)
 
             self.write_par_value(course1, hole_num1, par2)
-            self.write_par_value(course2, hole_num2, par1)
 
         except ValueError as e:
             print(f"Par swap failed: {e}")
@@ -221,11 +232,14 @@ class MarioGolf64InteractiveCourseCreator:
         for course_id, course_name in self.course_names.items():
             print(f"{course_id}. {course_name}")
 
-    def get_hole_selection(self, hole_number: int) -> Optional[int]:
+    def get_hole_selection(self, og_hole_number: int) -> Optional[int]:
         """Get user selection for a specific hole"""
+
+        self.display_courses()
+
         while True:
-            print(f"\n--- Hole {hole_number} ---")
-            course_input = input(f"Enter course number (0-5) for hole {hole_number}, or 'D' to finish: ").strip()
+            print(f"\n--- Hole {og_hole_number} ---")
+            course_input = input(f"Enter course number (0-5) for hole {og_hole_number}, or 'D' to finish: ").strip()
 
             if course_input.upper() == 'D':
                 return None
@@ -239,27 +253,33 @@ class MarioGolf64InteractiveCourseCreator:
                 print(f"Selected: {self.course_names[course_id]}")
 
                 hole_input = input(f"Enter hole number (1-18) from {self.course_names[course_id]}: ").strip()
-                hole_num = int(hole_input)
+                new_hole_num = int(hole_input)
 
-                if hole_num < 1 or hole_num > 18:
+                if new_hole_num < 1 or new_hole_num > 18:
                     print("Invalid hole number. Please enter 1-18.")
                     continue
 
-                if hole_num not in self.course_to_indices[course_id]:
-                    print(f"Hole {hole_num} not found in {self.course_names[course_id]}")
+                if new_hole_num not in self.course_to_indices[course_id]:
+                    print(f"Hole {new_hole_num} not found in {self.course_names[course_id]}")
                     continue
 
-                hole_index = self.course_to_indices[course_id][hole_num]
-                hole_description = self.hole_map[hole_index]
-                print(f"Selected: {hole_description}")
-
-                return hole_index
+                hole_index = self.course_to_indices[course_id][new_hole_num]
+                hole_description = self.course_names[course_id]
+                print(f"Selected: {hole_description} Hole {new_hole_num}")
+                okay = input("Is this okay (y/n): ")
+                if okay.upper() == 'Y' or okay.upper() == 'YES':
+                    return hole_index
+                elif okay.upper() == 'N' or okay.upper() == 'NO':
+                    continue
+                else:
+                    print("Accepting as no, restarting")
+                    continue
 
             except ValueError:
                 print("Please enter valid numbers.")
 
     def create_custom_course(self):
-        """Interactive custom course creation"""
+        """Interactive custom course playlist creation"""
         print("\n" + "="*60)
         print("CUSTOM COURSE CREATOR")
         print("="*60)
@@ -343,10 +363,12 @@ class MarioGolf64InteractiveCourseCreator:
                     if confirm == 'y':
                         self.apply_course_changes(new_holes, target_holes)
 
-                        filename = input("\nSave ROM as: ").strip()
-                        if filename:
-                            self.save_rom(filename)
-                            print(f"Custom course created! Load '{filename}' in your emulator.")
+                        filename = input("\nSave ROM as (mg_custom_playlist.z64): ").strip()
+                        if not filename:
+                            filename = 'mg_custom_playlist.z64'
+                        
+                        self.save_rom(filename)
+                        print(f"Custom course created! Load '{filename}' in your emulator.")
                         break
                     else:
                         print("Course creation cancelled.")
@@ -360,10 +382,12 @@ class MarioGolf64InteractiveCourseCreator:
                 if confirm == 'y':
                     self.apply_course_changes(new_holes, target_holes)
 
-                    filename = input("\nSave ROM as: ").strip()
-                    if filename:
-                        self.save_rom(filename)
-                        print(f"Random course created! Load '{filename}' in your emulator.")
+                    filename = input("\nSave ROM as (mg_random.z64): ").strip()
+                    if not filename:
+                        filename = 'mg_random.z64'
+                    
+                    self.save_rom(filename)
+                    print(f"Random course created! Load '{filename}' in your emulator.")
                     break
                 else:
                     print("Random course cancelled.")
@@ -380,9 +404,11 @@ if __name__ == "__main__":
     print("Mario Golf 64 Interactive Course Creator")
     print("=" * 50)
 
-    rom_path = input("Enter ROM path (or press Enter for 'baserom.z64'): ").strip()
+    rom_path = input("Enter ROM path ('baserom.z64'): ").strip()
     if not rom_path:
         rom_path = "baserom.z64"
+
+    print(f'\nRom Path: {rom_path}\n')
 
     creator = MarioGolf64InteractiveCourseCreator(rom_path)
 
