@@ -1,14 +1,11 @@
-# Mario Golf 64 Course Creator
+# Mario Golf 64 Course Playlist/Randomizer Creator
 
 A Python tool for creating custom courses in Mario Golf 64 by swapping hole geometry and par values.
 
 ## Features
 
-- **Complete hole swapping**: Swaps both visual geometry AND gameplay par values
-- **Custom course creation**: Manually select each hole from any course
+- **Custom course playlist creation**: Manually select each hole from any course
 - **Random course generation**: Generate 9 or 18-hole random courses
-- **Interactive interface**: User-friendly prompts for course creation
-- **Full course support**: All 6 main courses
 
 ## Requirements
 
@@ -32,7 +29,7 @@ A Python tool for creating custom courses in Mario Golf 64 by swapping hole geom
 1. Run the script and enter your ROM path when prompted
 2. Choose between custom or random course creation
 3. Follow the interactive prompts
-4. Save your custom ROM and test in an emulator (May require rn64crc fix tool: https://aidyn-chronicles-the-first-mage.fandom.com/wiki/How_to_Update_a_Checksum)
+4. Save your custom ROM and test in an emulator
 
 ### Custom Course Creation
 
@@ -71,7 +68,7 @@ The tool modifies two key data structures in the ROM:
 The game stores holes in a non-sequential order. The tool handles the complex mapping between:
 
 - Hole indices (0-144)
-- Course and hole numbers (Course 0-7, Holes 1-18)
+- Course and hole numbers (Course 0-5, Holes 1-18)
 - Internal data structures
 
 ## Technical Details
@@ -82,11 +79,7 @@ The game stores holes in a non-sequential order. The tool handles the complex ma
 - Input: Original Mario Golf 64 ROM
 - Output: Modified ROM with custom course
 
-### Data Formats
-
-- **Geometry data**: Big-endian 32-bit pointers and lengths
-- **Par values**: Single bytes (3, 4, or 5)
-- **Resource entries**: 8-byte structures [length][offset]
+- `rn64crc.exe`: Required to update checksum so the game will run in emulator
 
 ### Memory Layout
 
@@ -102,8 +95,6 @@ ROM Structure:
 
 - Only replaces Toad Highlands course
 - Requires original Mario Golf 64 ROM
-- Par values limited to 3, 4, or 5
-- Practice course (index 144) excluded from random generation
 
 ## Troubleshooting
 
@@ -111,11 +102,6 @@ ROM Structure:
 
 - Ensure ROM is in the same directory as the script
 - Check ROM filename matches your input
-
-**"Invalid par value"**
-
-- Par values must be 3, 4, or 5
-- Tool validates par values automatically
 
 **"Unknown hole index"**
 
@@ -127,7 +113,7 @@ ROM Structure:
 Mario Golf 64 Interactive Course Creator
 ======================================
 
-Enter ROM path: mario_golf.z64
+Enter ROM path: baserom.z64
 Loaded ROM: 25165824 bytes
 
 What would you like to create?
@@ -164,7 +150,9 @@ Custom course created! Load 'my_custom_course.z64' in your emulator.
 
 - Reverse engineering research from hack64.net wiki contributors
 - Original level import/export tool by DeathBasket
+- RN64CRC Tool found (https://www.smwcentral.net/?p=section&a=details&id=8799 **website not currently available as of 2025/09/22**)
 
 ## License
 
 Educational/research purposes. Requires original Mario Golf 64 ROM.
+See LICENSE for more details
