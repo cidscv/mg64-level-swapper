@@ -95,6 +95,8 @@ ROM Structure:
 
 - Only replaces Toad Highlands course
 - Requires original Mario Golf 64 ROM
+- All Courses will use Toad Highland's colour pallet (e.g. No desert for Shy Guy holes)
+- "Yards to hole" does not update to new hole. This can be done in a future release but it doesn't affect anything so...
 
 ## Troubleshooting
 

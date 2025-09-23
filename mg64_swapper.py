@@ -187,9 +187,10 @@ class MarioGolf64InteractiveCourseCreator:
         else:
             raise ValueError(f"Unknown hole index: {hole_index}")
 
-    def swap_holes_complete(self, hole1_index: int, hole2_index: int):
-        """Swap two holes completely"""
-        # Swap geometry (7 components per hole)
+    def point_to_new_hole(self, hole1_index: int, hole2_index: int):
+        """Point Toad hole to new hole"""
+        # Course table info - 7 components per hole.
+        # More info on course table here: https://hack64.net/wiki/doku.php?id=mario_golf:hole_components
         hole1_start = hole1_index * 7
         hole2_start = hole2_index * 7
 
@@ -206,7 +207,7 @@ class MarioGolf64InteractiveCourseCreator:
             struct.pack_into('>I', self.rom_data, offset, length2)
             struct.pack_into('>I', self.rom_data, offset + 4, offset2)
 
-        # Swap par values
+        # Change par value
         try:
             course1, hole_num1 = self.hole_index_to_course_hole(hole1_index)
             course2, hole_num2 = self.hole_index_to_course_hole(hole2_index)
@@ -216,7 +217,7 @@ class MarioGolf64InteractiveCourseCreator:
             self.write_par_value(course1, hole_num1, par2)
 
         except ValueError as e:
-            print(f"Par swap failed: {e}")
+            print(f"Par failed to change: {e}")
 
     def get_toad_highlands_indices(self) -> List[int]:
         """Get Toad Highlands hole indices in order 1-18"""
@@ -332,7 +333,7 @@ class MarioGolf64InteractiveCourseCreator:
 
         for i, (new_hole, target_hole) in enumerate(zip(new_holes, target_holes)):
             if new_hole != target_hole:
-                self.swap_holes_complete(target_hole, new_hole)
+                self.point_to_new_hole(target_hole, new_hole)
                 print(f"  Hole {i+1}: {self.hole_map[target_hole]} -> {self.hole_map[new_hole]}")
             else:
                 print(f"  Hole {i+1}: Keeping {self.hole_map[target_hole]}")
